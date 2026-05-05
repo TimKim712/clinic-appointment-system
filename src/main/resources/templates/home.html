@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Clinic Appointment System</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f5f5f5;
+            margin-top: 60px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .container {
+            margin-top: 40px;
+        }
+
+        .button {
+            display: inline-block;
+            margin: 15px;
+            padding: 12px 25px;
+            font-size: 16px;
+            text-decoration: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Clinic Appointment System</h1>
+
+<p>Welcome to the appointment scheduling system.</p>
+
+<div class="container">
+
+    <a class="button" th:href="@{/appointments}">
+        View Appointments
+    </a>
+
+    <a class="button" th:href="@{/book}">
+        Book Appointment
+    </a>
+
+</div>
+
+</body>
+</html>

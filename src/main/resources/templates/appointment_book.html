@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book Appointment</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+        }
+
+        form {
+            width: 400px;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 6px;
+            margin-top: 4px;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 8px 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Book Appointment</h1>
+
+<form action="/confirmation">
+
+<label>Patient Name</label>
+<input type="text" value="John Doe">
+
+<label>Email</label>
+<input type="email" value="johndoe@email.com">
+
+<label>Provider</label>
+<select>
+<option>Dr. Sarah Lee</option>
+<option>Dr. Michael Chen</option>
+<option>Dr. David Kim</option>
+</select>
+
+<label>Service</label>
+<select>
+<option>General Consultation</option>
+<option>Annual Physical</option>
+<option>Dermatology Checkup</option>
+<option>Follow-up Appointment</option>
+</select>
+
+<label>Date</label>
+<input type="date" value="2026-04-10">
+
+<label>Time</label>
+<input type="time" value="09:00">
+
+<button type="submit">Confirm Appointment</button>
+
+</form>
+
+<br>
+<a href="/">Return Home</a>
+
+</body>
+</html>

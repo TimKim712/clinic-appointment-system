@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: clinic-appointment-system
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5433/clinic_appointment
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  
+  sql:
+    init:
+      mode: always
+      platform: postgres
+  
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+      org.springframework.jdbc.datasource.init: DEBUG
