@@ -25,5 +25,17 @@ mvn spring-boot:run
 ```
 This should start up the application on `localhost:8080` as well as run `data.sql`, which creates the schema and populates the local database. The local database should also be on port 5433. 
 
-
+### Check to make sure the database is properly populated
+```bash
+docker exec -it clinic-appointment-db psql -U postgres -d clinic_appointment
+```
+This connects to the postgres database instance from the container and should re-direct you to the psql shell. Inside the shell, run queries to return all the rows from each table, something like:
+```bash
+  SELECT * FROM users;                                                                                                                                                                  
+  SELECT * FROM patients;                                   
+  SELECT * FROM providers;
+  SELECT * FROM services;
+  SELECT * FROM availability_slots;
+```
+There should be 5 users, 2 patients, 2 providers, 3 services, and 4 slots. To exit out of the psql shell, type `\q`. 
 
