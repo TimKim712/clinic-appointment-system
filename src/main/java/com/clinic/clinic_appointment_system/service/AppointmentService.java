@@ -66,7 +66,6 @@ public class AppointmentService {
 
         Appointment booked = appointmentRepository.findById(appointmentId);
 
-        // Mock remote service call for notification
         try {
             notificationService.sendAppointmentConfirmation(booked);
             logger.info("Notification sent for appointment {}", appointmentId);

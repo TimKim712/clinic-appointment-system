@@ -32,56 +32,39 @@ public class MetricsConfiguration {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /**
-     * Register JVM memory metrics
-     */
     @Bean
     public JvmMemoryMetrics jvmMemoryMetrics() {
         return new JvmMemoryMetrics();
     }
 
-    /**
-     * Register JVM thread metrics
-     */
+    
     @Bean
     public JvmThreadMetrics jvmThreadMetrics() {
         return new JvmThreadMetrics();
     }
 
-    /**
-     * Register processor metrics
-     */
     @Bean
     public ProcessorMetrics processorMetrics() {
         return new ProcessorMetrics();
     }
 
-    /**
-     * Collect custom business metrics every minute
-     * - Total appointments count
-     * - Available slots count
-     * - Total users count
-     */
-    @Scheduled(fixedRate = 60000) // Every 60 seconds
+    @Scheduled(fixedRate = 600000) 
     public void collectBusinessMetrics() {
         try {
             logger.debug("Collecting business metrics");
             
-            // Total appointments
             Integer totalAppointments = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM appointments", 
                 Integer.class
             );
             meterRegistry.gauge("appointments.total", totalAppointments != null ? totalAppointments : 0);
             
-            // Available slots
             Integer availableSlots = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM availability_slots WHERE is_booked = false", 
                 Integer.class
             );
             meterRegistry.gauge("appointments.slots.available", availableSlots != null ? availableSlots : 0);
             
-            // Total users
             Integer totalUsers = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM users", 
                 Integer.class
@@ -96,28 +79,21 @@ public class MetricsConfiguration {
         }
     }
     
-    /**
-     * Log booking performance metrics every 5 minutes
-     * Shows average latency, max latency, and percentiles
-     */
-    @Scheduled(fixedRate = 300000) // Every 5 minutes (300,000 ms)
+    @Scheduled(fixedRate = 600000)
     public void logBookingPerformanceMetrics() {
         try {
             logger.debug("Collecting booking performance metrics");
             
-            // Get the booking duration timer
             Timer bookingTimer = meterRegistry.find("appointments.booking.duration")
                 .tag("service", "appointment")
                 .timer();
             
             if (bookingTimer != null && bookingTimer.count() > 0) {
-                // Calculate statistics
                 long totalBookings = (long) bookingTimer.count();
                 double totalTime = bookingTimer.totalTime(TimeUnit.MILLISECONDS);
                 double average = totalTime / totalBookings;
                 double maxDuration = bookingTimer.max(TimeUnit.MILLISECONDS);
                 
-                // Log performance summary
                 logger.info("═══════════════════════════════════════════════════════════");
                 logger.info("PERFORMANCE_METRICS - Booking Operation Statistics");
                 logger.info("───────────────────────────────────────────────────────────");
@@ -126,7 +102,6 @@ public class MetricsConfiguration {
                 logger.info("  Max Latency: {}ms", String.format("%.2f", maxDuration));
                 logger.info("  Total Time: {}s", String.format("%.2f", totalTime / 1000));
                 
-                // Performance assessment
                 String performanceLevel;
                 if (average < 100) {
                     performanceLevel = "EXCELLENT";
@@ -142,7 +117,6 @@ public class MetricsConfiguration {
                 logger.info("  Performance Level: {}", performanceLevel);
                 logger.info("═══════════════════════════════════════════════════════════");
                 
-                // Warn if performance is degrading
                 if (average > 500) {
                     logger.warn("ALERT: Booking latency is high ({}ms avg). Investigation recommended.", String.format("%.2f", average));
                 }
@@ -157,19 +131,14 @@ public class MetricsConfiguration {
             logger.error("Error collecting performance metrics: {}", e.getMessage(), e);
         }
     }
-    
-    /**
-     * Log comprehensive system metrics every 10 minutes
-     * Provides a complete health snapshot
-     */
-    @Scheduled(fixedRate = 60000) // Every 60 seconds
+
+    @Scheduled(fixedRate = 600000) // Every 10 minutes
     public void logComprehensiveMetrics() {
         try {
             logger.info("═══════════════════════════════════════════════════════════");
             logger.info("SYSTEM_HEALTH_SNAPSHOT - Complete Metrics Overview");
             logger.info("───────────────────────────────────────────────────────────");
             
-            // Business metrics
             Integer totalAppointments = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM appointments", Integer.class);
             Integer availableSlots = jdbcTemplate.queryForObject(
@@ -182,7 +151,6 @@ public class MetricsConfiguration {
             logger.info("  Available Slots: {}", availableSlots);
             logger.info("  Total Users: {}", totalUsers);
             
-            // Booking counters
             Double successfulBookings = meterRegistry.find("appointments.bookings.success")
                 .counter() != null ? meterRegistry.find("appointments.bookings.success").counter().count() : 0;
             Double failedBookings = meterRegistry.find("appointments.bookings.failed")
@@ -197,7 +165,6 @@ public class MetricsConfiguration {
             logger.info("  Failed: {}", failedBookings.longValue());
             logger.info("  Failure Rate: {}%", String.format("%.2f", failureRate));
             
-            // Performance metrics
             Timer bookingTimer = meterRegistry.find("appointments.booking.duration")
                 .tag("service", "appointment").timer();
             
@@ -208,7 +175,6 @@ public class MetricsConfiguration {
                 logger.info("  Max Latency: {}ms", String.format("%.2f", bookingTimer.max(TimeUnit.MILLISECONDS)));
             }
             
-            // System resources
             Runtime runtime = Runtime.getRuntime();
             long freeMemoryMB = runtime.freeMemory() / (1024 * 1024);
             long totalMemoryMB = runtime.totalMemory() / (1024 * 1024);
@@ -223,7 +189,6 @@ public class MetricsConfiguration {
             
             logger.info("═══════════════════════════════════════════════════════════");
             
-            // Warnings
             if (availableSlots != null && availableSlots < 10) {
                 logger.warn("ALERT: Low available slots ({}). Consider creating more appointment slots.", availableSlots);
             }

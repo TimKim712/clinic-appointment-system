@@ -39,7 +39,6 @@ public class HealthController {
         health.put("timestamp", LocalDateTime.now());
         health.put("application", "Clinic Appointment System");
         
-        // Check database connectivity
         try {
             jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             health.put("database", "UP");
@@ -53,9 +52,6 @@ public class HealthController {
         return ResponseEntity.ok(health);
     }
 
-    /**
-     * Detailed health check with component status
-     */
     @GetMapping("/detailed")
     public ResponseEntity<Map<String, Object>> detailedHealthCheck() {
         logger.info("Detailed health check requested");
@@ -65,12 +61,10 @@ public class HealthController {
         
         Map<String, String> components = new HashMap<>();
         
-        // Check database
         try {
             jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             components.put("database", "UP");
             
-            // Count records
             Integer userCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
             Integer appointmentCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM appointments", Integer.class);
             
@@ -82,7 +76,6 @@ public class HealthController {
             logger.error("Database health check failed", e);
         }
         
-        // Overall status
         boolean allUp = components.values().stream().allMatch(status -> status.equals("UP"));
         health.put("status", allUp ? "UP" : "DEGRADED");
         health.put("components", components);

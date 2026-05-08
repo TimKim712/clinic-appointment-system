@@ -64,9 +64,6 @@ public class AdminAppointmentController {
         }
     }
 
-    /**
-     * Get summary statistics for admin dashboard
-     */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getAppointmentStats() {
         logger.info("API: Admin requesting appointment statistics");
