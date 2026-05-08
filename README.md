@@ -20,6 +20,7 @@ This starts up the local database instance; the username and password for the da
 
 ### Run the application
 ```bash
+cd .. #should be in the project's root directory
 mvn spring-boot:run
 ```
 This should start up the application on `localhost:8080` as well as run `data.sql`, which creates the schema and populates the local database. The local database should also be on port 5433. 
