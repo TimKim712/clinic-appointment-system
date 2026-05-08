@@ -2,93 +2,223 @@
 <html>
 <head>
     <title>Available Appointment Slots</title>
-
     <style>
         body {
-            font-family: Arial;
-            margin: 40px;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
 
         table {
+            width: 100%;
             border-collapse: collapse;
-            width: 70%;
+            margin-top: 20px;
         }
 
         th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
         }
 
         th {
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
         }
 
         .button {
-            padding: 6px 10px;
-            background-color: #4CAF50;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
             text-decoration: none;
-            border-radius: 4px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-slots {
+            text-align: center;
+            padding: 40px;
+            color: #666;
         }
     </style>
 </head>
-
 <body>
 
-<h1>Available Appointment Slots</h1>
+<div class="container">
+    <h1>📅 Available Appointment Slots</h1>
+    <p class="subtitle">Select a slot to book your appointment</p>
 
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Service</th>
-<th>Date</th>
-<th>Time</th>
-<th>Book</th>
-</tr>
-</thead>
+    <div id="error-message" class="error" style="display: none;"></div>
+    <div id="loading" class="loading">Loading available slots...</div>
+    <div id="slots-container"></div>
 
-<tbody>
+    <a href="/" class="back-link">← Return Home</a>
+</div>
 
-<tr>
-<td>Dr. Sarah Lee</td>
-<td>General Consultation</td>
-<td>April 10, 2026</td>
-<td>09:00 AM</td>
-<td><a class="button" href="/book">Book</a></td>
-</tr>
+<script>
+    // Fetch available slots from API
+    async function loadAvailableSlots() {
+        try {
+            const response = await fetch('/api/appointments/slots/available');
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch slots');
+            }
 
-<tr>
-<td>Dr. Michael Chen</td>
-<td>Dermatology Checkup</td>
-<td>April 10, 2026</td>
-<td>10:30 AM</td>
-<td><a class="button" href="/book">Book</a></td>
-</tr>
+            const slots = await response.json();
+            displaySlots(slots);
+        } catch (error) {
+            showError('Unable to load appointment slots. Please try again later.');
+            console.error('Error:', error);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
 
-<tr>
-<td>Dr. Sarah Lee</td>
-<td>Follow-up Appointment</td>
-<td>April 10, 2026</td>
-<td>01:00 PM</td>
-<td><a class="button" href="/book">Book</a></td>
-</tr>
+    function displaySlots(slots) {
+        const container = document.getElementById('slots-container');
 
-<tr>
-<td>Dr. David Kim</td>
-<td>Annual Physical</td>
-<td>April 11, 2026</td>
-<td>11:00 AM</td>
-<td><a class="button" href="/book">Book</a></td>
-</tr>
+        if (slots.length === 0) {
+            container.innerHTML = '<div class="no-slots">No available slots at this time. Please check back later.</div>';
+            return;
+        }
 
-</tbody>
-</table>
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Provider</th>
+                        <th>Specialty</th>
+                        <th>Service</th>
+                        <th>Date & Time</th>
+                        <th>Duration</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
 
-<br>
-<a href="/">Return Home</a>
+        slots.forEach(slot => {
+            const startTime = new Date(slot.startTime);
+            const duration = slot.durationMinutes || Math.round((new Date(slot.endTime) - startTime) / 60000);
+            const providerLabel = slot.providerName || `Provider ${slot.providerId}`;
+            const specialtyLabel = slot.providerSpecialty || '';
+            const serviceLabel = slot.serviceName || `Service ${slot.serviceId}`;
+
+            html += `
+                <tr>
+                    <td>${providerLabel}</td>
+                    <td>${specialtyLabel}</td>
+                    <td>${serviceLabel}</td>
+                    <td>${formatDateTime(startTime)}</td>
+                    <td>${duration} minutes</td>
+                    <td>
+                        <button class="button" onclick="bookSlot(${slot.id}, ${slot.providerId}, ${slot.serviceId}, '${(slot.providerName||'').replace(/'/g,"\\'")}', '${(slot.providerSpecialty||'').replace(/'/g,"\\'")}', '${(slot.serviceName||'').replace(/'/g,"\\'")}', ${slot.durationMinutes||0})">
+                            Book Now
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    function formatDateTime(date) {
+        const options = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        return date.toLocaleDateString('en-US', options);
+    }
+
+    function bookSlot(slotId, providerId, serviceId, providerName, providerSpecialty, serviceName, durationMinutes) {
+        sessionStorage.setItem('bookingInfo', JSON.stringify({
+            slotId, providerId, serviceId,
+            providerName, providerSpecialty, serviceName, durationMinutes
+        }));
+        window.location.href = '/book';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    // Load slots when page loads
+    window.addEventListener('DOMContentLoaded', loadAvailableSlots);
+</script>
 
 </body>
 </html>

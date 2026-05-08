@@ -2,77 +2,265 @@
 <html>
 <head>
     <title>Book Appointment</title>
-
     <style>
         body {
-            font-family: Arial;
-            margin: 40px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
 
-        form {
-            width: 400px;
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
         }
 
         label {
             display: block;
-            margin-top: 10px;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
         }
 
         input, select {
             width: 100%;
-            padding: 6px;
-            margin-top: 4px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+            background: white;
         }
 
-        button {
-            margin-top: 15px;
-            padding: 8px 14px;
-            background-color: #4CAF50;
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
             border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #1565c0;
         }
     </style>
 </head>
-
 <body>
 
-<h1>Book Appointment</h1>
+<div class="container">
+    <h1>📝 Book Appointment</h1>
+    <p class="subtitle">Fill in your details to confirm your appointment</p>
 
-<form action="/confirmation">
+    <div id="error-message" class="error"></div>
+    <div id="success-message" class="success"></div>
 
-<label>Patient Name</label>
-<input type="text" value="John Doe">
+    <div id="slot-info" class="info-box" style="display: none;">
+        <p><strong>Selected Slot Information:</strong></p>
+        <p id="display-provider-line">Provider: <span id="display-provider-id"></span></p>
+        <p id="display-service-line">Service: <span id="display-service-id"></span></p>
+    </div>
 
-<label>Email</label>
-<input type="email" value="johndoe@email.com">
+    <form id="booking-form">
+        <div class="form-group">
+            <label for="patient-select">Your Name *</label>
+            <select id="patient-select" required>
+                <option value="">— Select your name —</option>
+            </select>
+        </div>
 
-<label>Provider</label>
-<select>
-<option>Dr. Sarah Lee</option>
-<option>Dr. Michael Chen</option>
-<option>Dr. David Kim</option>
-</select>
+        <input type="hidden" id="slot-id">
+        <input type="hidden" id="provider-id">
+        <input type="hidden" id="service-id">
 
-<label>Service</label>
-<select>
-<option>General Consultation</option>
-<option>Annual Physical</option>
-<option>Dermatology Checkup</option>
-<option>Follow-up Appointment</option>
-</select>
+        <button type="submit" class="button" id="submit-btn">Confirm Appointment</button>
+    </form>
 
-<label>Date</label>
-<input type="date" value="2026-04-10">
+    <a href="/appointments" class="back-link">← Back to Available Slots</a>
+    <br>
+    <a href="/" class="back-link">← Return Home</a>
+</div>
 
-<label>Time</label>
-<input type="time" value="09:00">
+<script>
+    window.addEventListener('DOMContentLoaded', async function() {
+        // Load patient names into dropdown
+        try {
+            const res = await fetch('/api/patients');
+            const patients = await res.json();
+            const select = document.getElementById('patient-select');
+            patients.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.username} (${p.email})`;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Could not load patient list', e);
+        }
 
-<button type="submit">Confirm Appointment</button>
+        // Pre-fill slot info from slots page
+        const bookingInfo = sessionStorage.getItem('bookingInfo');
+        if (bookingInfo) {
+            const info = JSON.parse(bookingInfo);
+            document.getElementById('slot-id').value = info.slotId;
+            document.getElementById('provider-id').value = info.providerId;
+            document.getElementById('service-id').value = info.serviceId;
 
-</form>
+            document.getElementById('display-provider-id').textContent =
+                info.providerName ? `${info.providerName} (${info.providerSpecialty || ''})` : `ID ${info.providerId}`;
+            document.getElementById('display-service-id').textContent =
+                info.serviceName ? `${info.serviceName}${info.durationMinutes ? ' — ' + info.durationMinutes + ' min' : ''}` : `ID ${info.serviceId}`;
+            document.getElementById('slot-info').style.display = 'block';
 
-<br>
-<a href="/">Return Home</a>
+            sessionStorage.removeItem('bookingInfo');
+        }
+    });
+
+    document.getElementById('booking-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submit-btn');
+        const errorDiv = document.getElementById('error-message');
+        const successDiv = document.getElementById('success-message');
+
+        // Hide previous messages
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Booking...';
+
+        const patientId = document.getElementById('patient-select').value;
+        if (!patientId) {
+            showError('Please select your name from the list.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm Appointment';
+            return;
+        }
+
+        // Get form data
+        const bookingData = {
+            patientId: parseInt(patientId),
+            slotId: parseInt(document.getElementById('slot-id').value),
+            providerId: parseInt(document.getElementById('provider-id').value),
+            serviceId: parseInt(document.getElementById('service-id').value)
+        };
+
+        try {
+            const response = await fetch('/api/appointments/book', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(bookingData)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Success - store appointment data and redirect
+                sessionStorage.setItem('appointmentData', JSON.stringify(data));
+                window.location.href = '/confirmation';
+            } else {
+                // Error from server
+                showError(data.error || 'Failed to book appointment. The slot may already be taken.');
+            }
+        } catch (error) {
+            showError('Network error. Please check your connection and try again.');
+            console.error('Error:', error);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm Appointment';
+        }
+    });
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        // Scroll to top to show error
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
 
 </body>
 </html>

@@ -4,7 +4,6 @@ import com.clinic.clinic_appointment_system.model.Appointment;
 import com.clinic.clinic_appointment_system.model.AvailabilitySlot;
 import com.clinic.clinic_appointment_system.repository.AppointmentRepository;
 import com.clinic.clinic_appointment_system.repository.AvailabilitySlotRepository;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class AppointmentService {
@@ -23,140 +21,139 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final AvailabilitySlotRepository slotRepository;
-    private final Counter successfulBookingsCounter;
-    private final Counter failedBookingsCounter;
-    private final Timer bookingTimer;
+    private final NotificationService notificationService;
     private final MeterRegistry meterRegistry;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               AvailabilitySlotRepository slotRepository,
+                              NotificationService notificationService,
                               MeterRegistry meterRegistry) {
         this.appointmentRepository = appointmentRepository;
         this.slotRepository = slotRepository;
+        this.notificationService = notificationService;
         this.meterRegistry = meterRegistry;
-        
-        // Initialize metrics
-        this.successfulBookingsCounter = Counter.builder("appointments.bookings.success")
-                .description("Number of successful appointment bookings")
-                .tag("service", "appointment")
-                .register(meterRegistry);
-                
-        this.failedBookingsCounter = Counter.builder("appointments.bookings.failed")
-                .description("Number of failed appointment bookings")
-                .tag("service", "appointment")
-                .register(meterRegistry);
-                
-        this.bookingTimer = Timer.builder("appointments.booking.duration")
-                .description("Time taken to book an appointment")
-                .tag("service", "appointment")
-                .register(meterRegistry);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public void bookAppointment(Appointment appointment) {
-        
-        // Start timing the booking operation
-        Timer.Sample sample = Timer.start();
-        long startTime = System.currentTimeMillis();
-        
-        logger.info("Attempting to book appointment - PatientId: {}, ProviderId: {}, SlotId: {}", 
-                    appointment.getPatientId(), 
-                    appointment.getProviderId(), 
-                    appointment.getSlotId());
+    public Appointment bookAppointment(Appointment appointment) {
+        logger.info("Attempting to book appointment for patient {} with provider {} for slot {}",
+                    appointment.getPatientId(), appointment.getProviderId(), appointment.getSlotId());
 
-        try {
-            // Acquire slot with pessimistic lock
-            logger.debug("Acquiring lock for slot: {}", appointment.getSlotId());
-            AvailabilitySlot slot = slotRepository.findByIdForUpdate(appointment.getSlotId());
+        Timer.Sample sample = Timer.start(meterRegistry);
 
-            // Check if slot is already booked
-            if (slot.isBooked()) {
-                logger.warn("Booking attempt failed - Slot {} is already booked. PatientId: {}", 
-                           appointment.getSlotId(), 
-                           appointment.getPatientId());
-                failedBookingsCounter.increment();
-                throw new IllegalStateException("Slot " + appointment.getSlotId() + " is already booked.");
-            }
+        AvailabilitySlot slot = slotRepository.findByIdForUpdate(appointment.getSlotId());
 
-            // Save the appointment
-            logger.debug("Saving appointment record for PatientId: {}, SlotId: {}", 
-                        appointment.getPatientId(), 
-                        appointment.getSlotId());
-            appointmentRepository.save(appointment);
-
-            // Mark slot as booked using optimistic locking
-            logger.debug("Marking slot {} as booked (version: {})", 
-                        slot.getId(), 
-                        slot.getVersion());
-            int rowsUpdated = slotRepository.markSlotBooked(slot.getId(), slot.getVersion());
-
-            if (rowsUpdated == 0) {
-                logger.error("Concurrent booking conflict detected - Slot {} was modified by another transaction. PatientId: {}", 
-                            slot.getId(), 
-                            appointment.getPatientId());
-                failedBookingsCounter.increment();
-                throw new IllegalStateException("Slot was booked by another user. Please choose a different time.");
-            }
-
-            // Calculate this operation's duration
-            long duration = System.currentTimeMillis() - startTime;
-            
-            // Get current statistics from the timer
-            long totalBookings = (long) bookingTimer.count();
-            double totalTime = bookingTimer.totalTime(TimeUnit.MILLISECONDS);
-            double currentAverage = totalBookings > 0 ? totalTime / totalBookings : 0;
-            
-            // Success - log with duration and current average
-            logger.info("Appointment booked successfully - PatientId: {}, ProviderId: {}, SlotId: {} | Duration: {}ms | Avg Latency: {:.2f}ms (based on {} bookings)", 
-                       appointment.getPatientId(), 
-                       appointment.getProviderId(), 
-                       appointment.getSlotId(),
-                       duration,
-                       currentAverage,
-                       totalBookings);
-            
-            successfulBookingsCounter.increment();
-            
-        } catch (IllegalStateException e) {
-            // Business logic failures (already logged above)
-            throw e;
-        } catch (Exception e) {
-            logger.error("Unexpected error during booking - PatientId: {}, SlotId: {}, Error: {}", 
-                        appointment.getPatientId(), 
-                        appointment.getSlotId(), 
-                        e.getMessage(), 
-                        e);
-            failedBookingsCounter.increment();
-            throw new RuntimeException("Failed to book appointment due to system error", e);
-        } finally {
-            // Record the duration of the booking operation
-            sample.stop(bookingTimer);
+        if (slot.isBooked()) {
+            logger.warn("Slot {} is already booked", appointment.getSlotId());
+            meterRegistry.counter("appointments.bookings.failed").increment();
+            throw new IllegalStateException("Slot " + appointment.getSlotId() + " is already booked.");
         }
+
+        Long appointmentId = appointmentRepository.save(appointment);
+        appointment.setId(appointmentId);
+
+        int rowsUpdated = slotRepository.markSlotBooked(slot.getId(), slot.getVersion());
+
+        if (rowsUpdated == 0) {
+            logger.error("Optimistic locking failure for slot {}", slot.getId());
+            meterRegistry.counter("appointments.bookings.failed").increment();
+            throw new IllegalStateException("Slot was booked by another user. Please choose a different time.");
+        }
+
+        logger.info("Successfully booked appointment {} for slot {}", appointmentId, slot.getId());
+        meterRegistry.counter("appointments.bookings.success").increment();
+        sample.stop(meterRegistry.timer("appointments.booking.duration", "service", "appointment"));
+
+        Appointment booked = appointmentRepository.findById(appointmentId);
+
+        // Mock remote service call for notification
+        try {
+            notificationService.sendAppointmentConfirmation(booked);
+            logger.info("Notification sent for appointment {}", appointmentId);
+        } catch (Exception e) {
+            logger.error("Failed to send notification for appointment {}: {}", appointmentId, e.getMessage());
+        }
+
+        return booked;
+    }
+
+    @Transactional
+    public void cancelAppointment(Long appointmentId, Long patientId) {
+        logger.info("Patient {} attempting to cancel appointment {}", patientId, appointmentId);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId);
+        
+        if (appointment == null) {
+            logger.warn("Appointment {} not found", appointmentId);
+            throw new IllegalArgumentException("Appointment not found");
+        }
+        
+        if (!appointment.getPatientId().equals(patientId)) {
+            logger.warn("Patient {} attempted to cancel appointment {} which belongs to patient {}", 
+                       patientId, appointmentId, appointment.getPatientId());
+            throw new IllegalStateException("You can only cancel your own appointments");
+        }
+
+        slotRepository.releaseSlot(appointment.getSlotId());
+        appointmentRepository.delete(appointmentId);
+        
+        logger.info("Successfully cancelled appointment {}", appointmentId);
+    }
+
+    @Transactional
+    public Appointment createAppointmentByProvider(Appointment appointment, Long providerId) {
+        logger.info("Provider {} creating appointment for patient {} in slot {}", 
+                    providerId, appointment.getPatientId(), appointment.getSlotId());
+        
+        if (!appointment.getProviderId().equals(providerId)) {
+            logger.warn("Provider {} attempted to create appointment for different provider {}", 
+                       providerId, appointment.getProviderId());
+            throw new IllegalStateException("Providers can only create appointments for themselves");
+        }
+
+        return bookAppointment(appointment);
+    }
+
+    @Transactional
+    public void deleteAppointmentByProvider(Long appointmentId, Long providerId) {
+        logger.info("Provider {} attempting to delete appointment {}", providerId, appointmentId);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId);
+        
+        if (appointment == null) {
+            logger.warn("Appointment {} not found", appointmentId);
+            throw new IllegalArgumentException("Appointment not found");
+        }
+        
+        if (!appointment.getProviderId().equals(providerId)) {
+            logger.warn("Provider {} attempted to delete appointment {} which belongs to provider {}", 
+                       providerId, appointmentId, appointment.getProviderId());
+            throw new IllegalStateException("Providers can only delete their own appointments");
+        }
+
+        slotRepository.releaseSlot(appointment.getSlotId());
+        appointmentRepository.delete(appointmentId);
+        
+        logger.info("Successfully deleted appointment {}", appointmentId);
     }
 
     public List<Appointment> getAllAppointments() {
-        logger.debug("Retrieving all appointments");
-        try {
-            List<Appointment> appointments = appointmentRepository.findAll();
-            logger.info("Retrieved {} appointments", appointments.size());
-            return appointments;
-        } catch (Exception e) {
-            logger.error("Error retrieving appointments: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to retrieve appointments", e);
-        }
+        logger.info("Retrieving all appointments");
+        return appointmentRepository.findAll();
     }
-    
-    /**
-     * Get current booking performance statistics
-     * Useful for monitoring and debugging
-     */
-    public void logCurrentStatistics() {
-        long totalBookings = (long) bookingTimer.count();
-        double totalTime = bookingTimer.totalTime(TimeUnit.MILLISECONDS);
-        double average = totalBookings > 0 ? totalTime / totalBookings : 0;
-        double maxDuration = bookingTimer.max(TimeUnit.MILLISECONDS);
-        
-        logger.info("BOOKING_STATS - Total Bookings: {}, Avg Latency: {:.2f}ms, Max: {:.2f}ms", 
-                   totalBookings, average, maxDuration);
+
+    public List<Appointment> getAppointmentsByProvider(Long providerId) {
+        logger.info("Retrieving appointments for provider {}", providerId);
+        return appointmentRepository.findByProviderId(providerId);
+    }
+
+    public List<Appointment> getAppointmentsByPatient(Long patientId) {
+        logger.info("Retrieving appointments for patient {}", patientId);
+        return appointmentRepository.findByPatientId(patientId);
+    }
+
+    public Appointment getAppointmentDetails(Long appointmentId) {
+        logger.info("Retrieving details for appointment {}", appointmentId);
+        return appointmentRepository.findByIdWithDetails(appointmentId);
     }
 }

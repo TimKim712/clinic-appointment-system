@@ -1,77 +1,64 @@
 package com.clinic.clinic_appointment_system.service;
 
-import com.clinic.clinic_appointment_system.model.NotificationRequest;
-import com.clinic.clinic_appointment_system.model.NotificationResponse;
+import com.clinic.clinic_appointment_system.model.Appointment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+
+import java.util.Random;
 
 /**
- * Client façade that hides all HTTP details from the rest of the application.
- *
- * Design rationale (coarse-grained interface):
- *   • A single method — sendAppointmentConfirmation() — is the only way the
- *     main application interacts with the Notification Service.
- *   • All appointment data travels in one HTTP request (NotificationRequest).
- *     There are no preliminary calls to "open a session", "set the recipient",
- *     or "set the subject" separately; everything is bundled.
- *   • The method signature is deliberately high-level. Callers provide
- *     business concepts (patient name, service name, date/time) rather than
- *     low-level primitives (SMTP headers, template IDs, etc.).
- *   • Changing the notification transport (e-mail → SMS → push) requires only
- *     a change inside the Notification Service — the interface stays the same.
+ * Mock remote service that simulates sending notifications to external systems.
+ * In a real application, this would call an external email/SMS service.
  */
 @Service
 public class NotificationService {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
-
-    private final RestTemplate restTemplate;
+    private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
+    private final Random random = new Random();
 
     /**
-     * Base URL of the (mock) Notification Service.
-     * Defaults to localhost so the mock controller works out-of-the-box.
-     * Override via application.properties:
-     *   notification.service.url=https://real-notification-service.example.com
+     * Simulates sending appointment confirmation to external notification service.
+     * Includes artificial delay and occasional failures to demonstrate remote service behavior.
      */
-    @Value("${notification.service.url:http://localhost:8080}")
-    private String notificationServiceUrl;
+    public void sendAppointmentConfirmation(Appointment appointment) {
+        logger.info("Calling remote notification service for appointment {}", appointment.getId());
+        
+        // Simulate network delay (100-500ms)
+        try {
+            int delay = 100 + random.nextInt(400);
+            Thread.sleep(delay);
+            logger.debug("Remote service call took {}ms", delay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Remote service call interrupted", e);
+            throw new RuntimeException("Notification service interrupted", e);
+        }
 
-    public NotificationService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+        // Simulate occasional service failures (10% failure rate)
+        if (random.nextInt(10) == 0) {
+            logger.error("Remote notification service temporarily unavailable for appointment {}", 
+                        appointment.getId());
+            throw new RuntimeException("Remote notification service unavailable");
+        }
+
+        logger.info("Successfully sent notification for appointment {} to patient {} and provider {}", 
+                    appointment.getId(), appointment.getPatientId(), appointment.getProviderId());
     }
 
     /**
-     * Single coarse-grained operation exposed to the rest of the application.
-     *
-     * @param request  all data needed to notify the patient in one object
-     * @return         the service's response (status + opaque message ID)
+     * Simulates sending cancellation notification.
      */
-    public NotificationResponse sendAppointmentConfirmation(NotificationRequest request) {
-
-        String endpoint = notificationServiceUrl + "/mock/notify";
-
-        log.info("Calling Notification Service at {} for appointment {}",
-                 endpoint, request.getAppointmentId());
-
+    public void sendCancellationNotification(Long appointmentId, Long patientId, Long providerId) {
+        logger.info("Sending cancellation notification for appointment {}", appointmentId);
+        
         try {
-            NotificationResponse response =
-                    restTemplate.postForObject(endpoint, request, NotificationResponse.class);
-
-            log.info("Notification Service responded with status={} messageId={}",
-                     response != null ? response.getStatus()    : "null",
-                     response != null ? response.getMessageId() : "null");
-
-            return response;
-
-        } catch (Exception ex) {
-            // Notification failures are non-fatal; the appointment is already booked.
-            // Log the error and return a FAILED response so the caller can decide.
-            log.error("Notification Service call failed: {}", ex.getMessage());
-            return new NotificationResponse("FAILED", null,
-                    "Notification service unreachable: " + ex.getMessage());
+            Thread.sleep(100 + random.nextInt(300));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Notification service interrupted", e);
         }
+
+        logger.info("Cancellation notification sent for appointment {}", appointmentId);
     }
 }

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 { color: #d32f2f; margin-bottom: 10px; }
+
+        .subtitle { color: #666; margin-bottom: 30px; }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .button:hover { opacity: 0.9; }
+
+        .button.secondary {
+            background: linear-gradient(135deg, #607D8B 0%, #455A64 100%);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover { background: #f5f5f5; }
+
+        .loading { text-align: center; padding: 40px; color: #d32f2f; }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .no-data { text-align: center; padding: 40px; color: #666; }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #d32f2f;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover { text-decoration: underline; }
+
+        .nav-links { display: flex; gap: 15px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔐 Admin Dashboard</h1>
+    <p class="subtitle">Monitor all appointments in the system</p>
+
+    <div class="nav-links">
+        <a href="/admin-details" class="button secondary">Appointment Details</a>
+        <a href="/admin-stats" class="button secondary">System Statistics</a>
+    </div>
+
+    <div class="toolbar">
+        <button class="button" onclick="loadAppointments()">Refresh</button>
+    </div>
+
+    <div id="error-message" class="error"></div>
+    <div id="loading" class="loading">Loading appointments...</div>
+    <div id="appointments-container"></div>
+
+    <a href="/" class="back-link">← Return Home</a>
+</div>
+
+<script>
+    async function loadAppointments() {
+        const loading = document.getElementById('loading');
+        const container = document.getElementById('appointments-container');
+        const errorDiv = document.getElementById('error-message');
+
+        loading.style.display = 'block';
+        errorDiv.style.display = 'none';
+        container.innerHTML = '';
+
+        try {
+            const response = await fetch('/api/admin/appointments');
+            if (!response.ok) throw new Error('Failed to fetch appointments');
+            const appointments = await response.json();
+            displayAppointments(appointments);
+        } catch (error) {
+            errorDiv.textContent = 'Unable to load appointments. Please try again.';
+            errorDiv.style.display = 'block';
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    function displayAppointments(appointments) {
+        const container = document.getElementById('appointments-container');
+
+        if (appointments.length === 0) {
+            container.innerHTML = '<div class="no-data">No appointments found in the system.</div>';
+            return;
+        }
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Patient</th>
+                        <th>Provider</th>
+                        <th>Specialty</th>
+                        <th>Service</th>
+                        <th>Date & Time</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        appointments.forEach(a => {
+            const patientLabel = a.patientUsername || `Patient ${a.patientId}`;
+            const providerLabel = a.providerUsername || `Provider ${a.providerId}`;
+            const specialtyLabel = a.providerSpecialty || '';
+            const serviceLabel = a.serviceName || `Service ${a.serviceId}`;
+            const dateLabel = a.startTime ? formatDateTime(new Date(a.startTime)) : 'N/A';
+            const duration = a.durationMinutes ? `${a.durationMinutes} min` : '';
+
+            html += `
+                <tr>
+                    <td>${a.id}</td>
+                    <td>${patientLabel}</td>
+                    <td>${providerLabel}</td>
+                    <td>${specialtyLabel}</td>
+                    <td>${serviceLabel}</td>
+                    <td>${dateLabel}</td>
+                    <td>${duration}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function formatDateTime(date) {
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', loadAppointments);
+</script>
+
+</body>
+</html>

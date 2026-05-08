@@ -48,4 +48,22 @@ public class PatientRepository {
             return patient;
         });
     }
+
+    public List<Patient> findAllPublic() {
+        String sql = """
+            SELECT u.id, u.username, u.role, p.email
+            FROM users u
+            JOIN patients p ON u.id = p.id
+            ORDER BY u.username
+        """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            Patient patient = new Patient();
+            patient.setId(rs.getLong("id"));
+            patient.setUsername(rs.getString("username"));
+            patient.setRole(rs.getString("role"));
+            patient.setEmail(rs.getString("email"));
+            return patient;
+        });
+    }
 }

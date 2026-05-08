@@ -25,4 +25,29 @@ public class PageController {
     public String confirmation() {
         return "appointment_confirmation";
     }
+
+    @GetMapping("/patient-dashboard")
+    public String patientDashboard() {
+        return "patient_dashboard";
+    }
+
+    @GetMapping("/provider-dashboard")
+    public String providerDashboard() {
+        return "provider_dashboard";
+    }
+
+    @GetMapping("/admin-dashboard")
+    public String adminDashboard() {
+        return "admin_dashboard";
+    }
+
+    @GetMapping("/admin-details")
+    public String adminDetails() {
+        return "admin_details";
+    }
+
+    @GetMapping("/admin-stats")
+    public String adminStats() {
+        return "admin_stats";
+    }
 }

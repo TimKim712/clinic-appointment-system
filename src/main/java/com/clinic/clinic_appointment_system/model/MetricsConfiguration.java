@@ -97,35 +97,6 @@ public class MetricsConfiguration {
     }
     
     /**
-     * Collect hourly booking statistics
-     * This runs every hour and logs booking statistics
-     */
-    @Scheduled(cron = "0 0 * * * *") // Every hour at minute 0
-    public void collectHourlyBookingStats() {
-        try {
-            logger.debug("Collecting hourly booking statistics");
-            
-            // Get bookings from the last hour
-            Integer bookingsLastHour = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM appointments WHERE created_at > NOW() - INTERVAL '1 hour'", 
-                Integer.class
-            );
-            
-            logger.info("HOURLY_STATS - Bookings in last hour: {}", 
-                       bookingsLastHour != null ? bookingsLastHour : 0);
-            
-            // Update gauge metric
-            meterRegistry.gauge("appointments.bookings.last_hour", 
-                              bookingsLastHour != null ? bookingsLastHour : 0);
-            
-        } catch (Exception e) {
-            // This might fail if created_at column doesn't exist yet
-            logger.warn("Could not collect hourly booking stats (table might not have created_at column): {}", 
-                       e.getMessage());
-        }
-    }
-    
-    /**
      * Log booking performance metrics every 5 minutes
      * Shows average latency, max latency, and percentiles
      */
@@ -151,9 +122,9 @@ public class MetricsConfiguration {
                 logger.info("PERFORMANCE_METRICS - Booking Operation Statistics");
                 logger.info("───────────────────────────────────────────────────────────");
                 logger.info("  Total Bookings: {}", totalBookings);
-                logger.info("  Average Latency: {:.2f}ms", average);
-                logger.info("  Max Latency: {:.2f}ms", maxDuration);
-                logger.info("  Total Time: {:.2f}s", totalTime / 1000);
+                logger.info("  Average Latency: {}ms", String.format("%.2f", average));
+                logger.info("  Max Latency: {}ms", String.format("%.2f", maxDuration));
+                logger.info("  Total Time: {}s", String.format("%.2f", totalTime / 1000));
                 
                 // Performance assessment
                 String performanceLevel;
@@ -173,10 +144,10 @@ public class MetricsConfiguration {
                 
                 // Warn if performance is degrading
                 if (average > 500) {
-                    logger.warn("ALERT: Booking latency is high ({:.2f}ms avg). Investigation recommended.", average);
+                    logger.warn("ALERT: Booking latency is high ({}ms avg). Investigation recommended.", String.format("%.2f", average));
                 }
                 if (maxDuration > 2000) {
-                    logger.warn("ALERT: Maximum booking latency is very high ({:.2f}ms). Check for slow queries or lock contention.", maxDuration);
+                    logger.warn("ALERT: Maximum booking latency is very high ({}ms). Check for slow queries or lock contention.", String.format("%.2f", maxDuration));
                 }
             } else {
                 logger.debug("No booking operations recorded yet");
@@ -191,7 +162,7 @@ public class MetricsConfiguration {
      * Log comprehensive system metrics every 10 minutes
      * Provides a complete health snapshot
      */
-    @Scheduled(fixedRate = 600000) // Every 10 minutes
+    @Scheduled(fixedRate = 60000) // Every 60 seconds
     public void logComprehensiveMetrics() {
         try {
             logger.info("═══════════════════════════════════════════════════════════");
@@ -224,7 +195,7 @@ public class MetricsConfiguration {
             logger.info("Booking Statistics:");
             logger.info("  Successful: {}", successfulBookings.longValue());
             logger.info("  Failed: {}", failedBookings.longValue());
-            logger.info("  Failure Rate: {:.2f}%", failureRate);
+            logger.info("  Failure Rate: {}%", String.format("%.2f", failureRate));
             
             // Performance metrics
             Timer bookingTimer = meterRegistry.find("appointments.booking.duration")
@@ -233,8 +204,8 @@ public class MetricsConfiguration {
             if (bookingTimer != null && bookingTimer.count() > 0) {
                 double avgLatency = bookingTimer.totalTime(TimeUnit.MILLISECONDS) / bookingTimer.count();
                 logger.info("Performance:");
-                logger.info("  Avg Latency: {:.2f}ms", avgLatency);
-                logger.info("  Max Latency: {:.2f}ms", bookingTimer.max(TimeUnit.MILLISECONDS));
+                logger.info("  Avg Latency: {}ms", String.format("%.2f", avgLatency));
+                logger.info("  Max Latency: {}ms", String.format("%.2f", bookingTimer.max(TimeUnit.MILLISECONDS)));
             }
             
             // System resources
@@ -246,7 +217,7 @@ public class MetricsConfiguration {
             double memoryUsagePercent = (double) usedMemoryMB / maxMemoryMB * 100;
             
             logger.info("System Resources:");
-            logger.info("  Memory: {}MB / {}MB ({:.1f}% used)", usedMemoryMB, maxMemoryMB, memoryUsagePercent);
+            logger.info("  Memory: {}MB / {}MB ({}% used)", usedMemoryMB, maxMemoryMB, String.format("%.1f", memoryUsagePercent));
             logger.info("  Free Memory: {}MB", freeMemoryMB);
             logger.info("  CPU Cores: {}", runtime.availableProcessors());
             
@@ -257,10 +228,10 @@ public class MetricsConfiguration {
                 logger.warn("ALERT: Low available slots ({}). Consider creating more appointment slots.", availableSlots);
             }
             if (failureRate > 10) {
-                logger.warn("ALERT: High booking failure rate ({:.2f}%). Investigation needed.", failureRate);
+                logger.warn("ALERT: High booking failure rate ({}%). Investigation needed.", String.format("%.2f", failureRate));
             }
             if (memoryUsagePercent > 80) {
-                logger.warn("ALERT: High memory usage ({:.1f}%). Consider increasing heap size or investigating memory leaks.", memoryUsagePercent);
+                logger.warn("ALERT: High memory usage ({}%). Consider increasing heap size or investigating memory leaks.", String.format("%.1f", memoryUsagePercent));
             }
             
         } catch (Exception e) {

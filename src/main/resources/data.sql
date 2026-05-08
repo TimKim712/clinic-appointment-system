@@ -1,30 +1,173 @@
+-- =========================================================
+-- Clinic Appointment System - Demo Initialization Script
+-- =========================================================
 
-INSERT INTO users (id, username, password, role) VALUES
-(1, 'john_patient', 'password', 'PATIENT'),
-(2, 'sarah_lee', 'password', 'PROVIDER'),
-(3, 'michael_chen', 'password', 'PROVIDER'),
-(4, 'admin_user', 'password', 'ADMIN') ON CONFLICT (id) DO NOTHING;
+-- ---------------------------------------------------------
+-- Drop tables in dependency order (development/demo only)
+-- ---------------------------------------------------------
+DROP TABLE IF EXISTS appointments CASCADE;
+DROP TABLE IF EXISTS availability_slots CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS providers CASCADE;
+DROP TABLE IF EXISTS patients CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
+-- ---------------------------------------------------------
+-- Create tables
+-- ---------------------------------------------------------
 
-INSERT INTO patients (id, email) VALUES
-(1, 'john@example.com') ON CONFLICT (id) DO NOTHING;
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL
+);
 
+CREATE TABLE patients (
+    id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL UNIQUE
+);
 
-INSERT INTO providers (id, specialty) VALUES
-(2, 'General Medicine'),
-(3, 'Dermatology') ON CONFLICT (id) DO NOTHING;
+CREATE TABLE providers (
+    id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    specialty VARCHAR(100) NOT NULL
+);
 
+CREATE TABLE services (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0)
+);
 
-INSERT INTO services (id, name, duration_minutes) VALUES
-(1, 'General Consultation', 30),
-(2, 'Dermatology Checkup', 30) ON CONFLICT (id) DO NOTHING;
+CREATE TABLE availability_slots (
+    id BIGSERIAL PRIMARY KEY,
+    provider_id BIGINT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    service_id BIGINT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    is_booked BOOLEAN NOT NULL DEFAULT FALSE,
+    version INTEGER NOT NULL DEFAULT 0,
 
+    CONSTRAINT chk_slot_time
+        CHECK (end_time > start_time)
+);
 
-INSERT INTO availability_slots (id, provider_id, service_id, start_time, end_time, is_booked) VALUES
-(1, 2, 1, '2026-04-10 09:00:00', '2026-04-10 09:30:00', false),
-(2, 2, 1, '2026-04-10 09:30:00', '2026-04-10 10:00:00', false),
-(3, 3, 2, '2026-04-10 10:00:00', '2026-04-10 10:30:00', false),
-(4, 3, 2, '2026-04-10 10:30:00', '2026-04-10 11:00:00', false) ON CONFLICT (id) DO NOTHING;
+CREATE TABLE appointments (
+    id BIGSERIAL PRIMARY KEY,
+    patient_id BIGINT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    provider_id BIGINT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    service_id BIGINT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    slot_id BIGINT NOT NULL REFERENCES availability_slots(id) ON DELETE CASCADE
+);
 
-INSERT INTO appointments (id, patient_id, provider_id, service_id, slot_id) VALUES
-(1, 1, 2, 1, 1) ON CONFLICT (id) DO NOTHING;
+-- ---------------------------------------------------------
+-- Insert users
+-- ---------------------------------------------------------
+
+INSERT INTO users (username, password, role)
+VALUES
+    ('john_patient', 'password123', 'PATIENT'),
+    ('jane_patient', 'password123', 'PATIENT'),
+    ('dr_smith', 'password123', 'PROVIDER'),
+    ('dr_jones', 'password123', 'PROVIDER'),
+    ('admin_user', 'password123', 'ADMIN')
+ON CONFLICT (username) DO NOTHING;
+
+-- ---------------------------------------------------------
+-- Insert patients
+-- ---------------------------------------------------------
+
+INSERT INTO patients (id, email)
+SELECT id, 'john@example.com'
+FROM users
+WHERE username = 'john_patient'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO patients (id, email)
+SELECT id, 'jane@example.com'
+FROM users
+WHERE username = 'jane_patient'
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------
+-- Insert providers
+-- ---------------------------------------------------------
+
+INSERT INTO providers (id, specialty)
+SELECT id, 'Cardiology'
+FROM users
+WHERE username = 'dr_smith'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO providers (id, specialty)
+SELECT id, 'General Practice'
+FROM users
+WHERE username = 'dr_jones'
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------
+-- Insert services
+-- ---------------------------------------------------------
+
+INSERT INTO services (name, duration_minutes)
+VALUES
+    ('General Checkup', 30),
+    ('Cardiology Consultation', 45),
+    ('Follow-up Visit', 20)
+ON CONFLICT (name) DO NOTHING;
+
+-- ---------------------------------------------------------
+-- Insert availability slots
+-- ---------------------------------------------------------
+
+INSERT INTO availability_slots (
+    provider_id,
+    service_id,
+    start_time,
+    end_time,
+    is_booked,
+    version
+)
+VALUES
+(
+    (SELECT id FROM providers WHERE specialty = 'Cardiology' LIMIT 1),
+    (SELECT id FROM services WHERE name = 'Cardiology Consultation' LIMIT 1),
+    DATE_TRUNC('day', NOW() + INTERVAL '1 day') + TIME '09:00:00',
+    DATE_TRUNC('day', NOW() + INTERVAL '1 day') + TIME '09:45:00',
+    FALSE,
+    0
+),
+(
+    (SELECT id FROM providers WHERE specialty = 'Cardiology' LIMIT 1),
+    (SELECT id FROM services WHERE name = 'Cardiology Consultation' LIMIT 1),
+    DATE_TRUNC('day', NOW() + INTERVAL '1 day') + TIME '10:00:00',
+    DATE_TRUNC('day', NOW() + INTERVAL '1 day') + TIME '10:45:00',
+    FALSE,
+    0
+),
+(
+    (SELECT id FROM providers WHERE specialty = 'General Practice' LIMIT 1),
+    (SELECT id FROM services WHERE name = 'General Checkup' LIMIT 1),
+    DATE_TRUNC('day', NOW() + INTERVAL '2 days') + TIME '14:00:00',
+    DATE_TRUNC('day', NOW() + INTERVAL '2 days') + TIME '14:30:00',
+    FALSE,
+    0
+),
+(
+    (SELECT id FROM providers WHERE specialty = 'General Practice' LIMIT 1),
+    (SELECT id FROM services WHERE name = 'Follow-up Visit' LIMIT 1),
+    DATE_TRUNC('day', NOW() + INTERVAL '2 days') + TIME '15:00:00',
+    DATE_TRUNC('day', NOW() + INTERVAL '2 days') + TIME '15:20:00',
+    FALSE,
+    0
+);
+
+-- ---------------------------------------------------------
+-- Verification Queries
+-- ---------------------------------------------------------
+
+SELECT * FROM users;
+SELECT * FROM patients;
+SELECT * FROM providers;
+SELECT * FROM services;
+SELECT * FROM availability_slots;

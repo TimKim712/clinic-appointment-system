@@ -8,34 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
-
-/**
- * Mock external Notification Service.
- *
- * In a real distributed system this would live in its own deployable artifact
- * (JAR / container) with its own database, scaling policy, and team ownership.
- * For this deliverable it is co-located in the same Spring Boot application to
- * make local demonstration straightforward, but it intentionally models a
- * separate bounded context:
- *
- *   • It has no direct dependency on any class in the appointment scheduler.
- *   • It communicates only through the coarse-grained HTTP contract defined by
- *     NotificationRequest / NotificationResponse.
- *   • Its single endpoint (/mock/notify) represents the full capability of the
- *     notification boundary — callers never need to know whether notifications
- *     are delivered by e-mail, SMS, or push notification.
- *
- * Coarse-grained interface justification:
- *   POST /mock/notify  — one endpoint handles the entire "notify patient"
- *   use-case. A fine-grained alternative would require the caller to:
- *     1. POST /notifications/create  (create a notification record)
- *     2. PATCH /notifications/{id}/recipient  (set recipient)
- *     3. PATCH /notifications/{id}/content    (set message body)
- *     4. POST  /notifications/{id}/send       (trigger delivery)
- *   That would couple the scheduler tightly to the notification service's
- *   internal state machine and quadruple network round-trips.  One coarse call
- *   keeps the boundary clean and the interaction efficient.
- */
 @RestController
 @RequestMapping("/mock")
 public class MockNotificationController {

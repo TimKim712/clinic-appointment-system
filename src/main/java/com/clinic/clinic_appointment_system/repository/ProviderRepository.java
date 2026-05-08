@@ -37,6 +37,24 @@ public class ProviderRepository {
         });
     }
 
+    public List<Provider> findAllPublic() {
+        String sql = """
+            SELECT u.id, u.username, u.role, p.specialty
+            FROM users u
+            JOIN providers p ON u.id = p.id
+            ORDER BY u.username
+        """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            Provider provider = new Provider();
+            provider.setId(rs.getLong("id"));
+            provider.setUsername(rs.getString("username"));
+            provider.setRole(rs.getString("role"));
+            provider.setSpecialty(rs.getString("specialty"));
+            return provider;
+        });
+    }
+
     public void save(Provider provider) {
 
         String sql = """
