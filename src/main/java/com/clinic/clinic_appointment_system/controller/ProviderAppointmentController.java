@@ -13,7 +13,6 @@ import java.util.Map;
 
 /**
  * Provider-specific endpoints for managing their own appointments.
- * Providers have admin-level privileges for their own appointments.
  */
 @RestController
 @RequestMapping("/api/providers/{providerId}/appointments")
@@ -39,7 +38,7 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Create a new appointment (provider admin action)
+     * Create a new appointment
      */
     @PostMapping
     public ResponseEntity<?> createAppointment(
@@ -65,7 +64,7 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Delete an appointment (provider admin action)
+     * Delete an appointment
      */
     @DeleteMapping("/{appointmentId}")
     public ResponseEntity<?> deleteAppointment(

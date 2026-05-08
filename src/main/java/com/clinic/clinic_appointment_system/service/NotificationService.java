@@ -9,7 +9,6 @@ import java.util.Random;
 
 /**
  * Mock remote service that simulates sending notifications to external systems.
- * In a real application, this would call an external email/SMS service.
  */
 @Service
 public class NotificationService {
@@ -19,13 +18,13 @@ public class NotificationService {
 
     /**
      * Simulates sending appointment confirmation to external notification service.
-     * Includes artificial delay and occasional failures to demonstrate remote service behavior.
      */
     public void sendAppointmentConfirmation(Appointment appointment) {
         logger.info("Calling remote notification service for appointment {}", appointment.getId());
         
-        // Simulate network delay (100-500ms)
+
         try {
+            //100-500ms latency simulation
             int delay = 100 + random.nextInt(400);
             Thread.sleep(delay);
             logger.debug("Remote service call took {}ms", delay);
@@ -35,7 +34,7 @@ public class NotificationService {
             throw new RuntimeException("Notification service interrupted", e);
         }
 
-        // Simulate occasional service failures (10% failure rate)
+        // Simulate 10% failure rate
         if (random.nextInt(10) == 0) {
             logger.error("Remote notification service temporarily unavailable for appointment {}", 
                         appointment.getId());

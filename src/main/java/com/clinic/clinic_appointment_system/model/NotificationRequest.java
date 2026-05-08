@@ -2,11 +2,6 @@ package com.clinic.clinic_appointment_system.model;
 
 /**
  * Coarse-grained request DTO sent to the external Notification Service.
- *
- * All information required to notify a patient about their appointment is
- * bundled into a single object. This avoids multiple round-trips and keeps
- * the distributed boundary clean — the caller does not need to know how the
- * notification service formats or delivers the message.
  */
 public class NotificationRequest {
 

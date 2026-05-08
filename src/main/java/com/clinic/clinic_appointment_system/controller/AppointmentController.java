@@ -63,7 +63,7 @@ public class AppointmentController {
     }
 
     /**
-     * Get all appointments (basic list)
+     * Get all appointments
      */
     @GetMapping
     public ResponseEntity<List<Appointment>> getAllAppointments() {

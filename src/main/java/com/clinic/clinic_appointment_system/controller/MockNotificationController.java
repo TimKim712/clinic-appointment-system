@@ -16,18 +16,11 @@ public class MockNotificationController {
 
     /**
      * Simulate sending an appointment-confirmation notification.
-     *
-     * Accepts all appointment data in a single request body; returns an opaque
-     * message ID and a status string.  The caller (AppointmentController) does
-     * not need to know how the message is ultimately delivered.
-     *
-     * @param request  coarse-grained notification payload
-     * @return         HTTP 200 with NotificationResponse
      */
     @PostMapping("/notify")
     public ResponseEntity<NotificationResponse> notify(@RequestBody NotificationRequest request) {
 
-        // ── Validate ─────────────────────────────────────────────────────────
+        
         if (request.getPatientEmail() == null || request.getPatientEmail().isBlank()) {
             log.warn("Notification rejected: missing patient e-mail");
             return ResponseEntity.badRequest()
@@ -35,7 +28,6 @@ public class MockNotificationController {
                             "Patient e-mail is required"));
         }
 
-        // ── Simulate delivery (stub) ──────────────────────────────────────────
         String messageId = "MSG-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         log.info("[MOCK NOTIFICATION SERVICE] Sending confirmation email");
@@ -46,10 +38,6 @@ public class MockNotificationController {
         log.info("  DateTime : {}", request.getAppointmentDateTime());
         log.info("  Appt ID  : {}", request.getAppointmentId());
         log.info("  MessageID: {}", messageId);
-
-        // In a real implementation this would delegate to an SMTP client,
-        // an SMS gateway, or a push-notification broker.  The caller is
-        // shielded from all of that complexity.
 
         return ResponseEntity.ok(
                 new NotificationResponse(

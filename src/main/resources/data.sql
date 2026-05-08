@@ -1,7 +1,3 @@
--- =========================================================
--- Clinic Appointment System - Demo Initialization Script
--- =========================================================
-
 -- ---------------------------------------------------------
 -- Drop tables in dependency order (development/demo only)
 -- ---------------------------------------------------------
@@ -161,13 +157,3 @@ VALUES
     FALSE,
     0
 );
-
--- ---------------------------------------------------------
--- Verification Queries
--- ---------------------------------------------------------
-
-SELECT * FROM users;
-SELECT * FROM patients;
-SELECT * FROM providers;
-SELECT * FROM services;
-SELECT * FROM availability_slots;

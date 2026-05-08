@@ -1,9 +1,8 @@
 package com.clinic.clinic_appointment_system.model;
 
 /**
- * Returns a status and a unique message ID so the caller can log or audit the
- * notification without needing to understand the internal mechanics of delivery
- * (e-mail, SMS, push, etc.).
+ * Returns a status and a unique message ID so the caller can log the
+ * notification.
  */
 public class NotificationResponse {
 
